@@ -26,23 +26,25 @@ class Room {
   get height() {
     return this._height;
   }
-  private ctx: CanvasRenderingContext2D;
-  constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+  game: Game;
+  constructor(game: Game) {
+    this.game = game;
+    const canvas = game.canvas;
     const rect = canvas.getBoundingClientRect();
     this._width = canvas.width = rect.width;
     this._height = canvas.height = rect.height;
-    this.ctx = ctx;
     this.init();
   }
   init() {
-    this.ctx.lineWidth = 1;
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, ENEMY_AREA_HEIGHT);
-    this.ctx.lineTo(this._width, ENEMY_AREA_HEIGHT);
-    this.ctx.moveTo(0, this._height - PLAYER_AREA_HEIGHT);
-    this.ctx.lineTo(this._width, this._height - PLAYER_AREA_HEIGHT);
-    this.ctx.stroke();
-    this.ctx.closePath();
+    const ctx = this.game.ctx;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, ENEMY_AREA_HEIGHT);
+    ctx.lineTo(this._width, ENEMY_AREA_HEIGHT);
+    ctx.moveTo(0, this._height - PLAYER_AREA_HEIGHT);
+    ctx.lineTo(this._width, this._height - PLAYER_AREA_HEIGHT);
+    ctx.stroke();
+    ctx.closePath();
   }
 }
 class Enemy {
@@ -72,8 +74,8 @@ class Enemy {
     this.charge();
   }
   charge() {
-    this.stopCharge = loop((deltaTime) => {
-      this.ctx.clearRect(
+    this.stopCharge = this.game.registerLoop((deltaTime) => {
+      this.game.ctx.clearRect(
         Math.floor(this._point.x - this.radius),
         Math.floor(this._point.y - this.radius),
         this.radius * 2 + 1,
@@ -84,12 +86,13 @@ class Enemy {
     });
   }
   create(point: Point) {
+    const ctx = this.game.ctx;
     // 开始绘制圆
-    this.ctx.beginPath();
-    this.ctx.arc(point.x, point.y, this.radius, 0, 2 * Math.PI);
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, this.radius, 0, 2 * Math.PI);
     // 设置填充颜色并填充
-    this.ctx.fillStyle = this.color;
-    this.ctx.fill();
+    ctx.fillStyle = this.color;
+    ctx.fill();
   }
 }
 class EnemyManager {
@@ -99,12 +102,10 @@ class EnemyManager {
   get enemyies() {
     return this._enemyies;
   }
-  private ctx: CanvasRenderingContext2D;
-  private room: Room;
   private interval: number | null = null;
-  constructor(room: Room, ctx: CanvasRenderingContext2D) {
-    this.ctx = ctx;
-    this.room = room;
+  private game: Game;
+  constructor(game: Game) {
+    this.game = game;
     this.init();
   }
   init() {
@@ -126,7 +127,7 @@ class EnemyManager {
   }
   createEnemy() {
     this.count++;
-    this._enemyies.push(new Enemy(this.room, this.ctx));
+    this._enemyies.push(new Enemy(this.game));
   }
   getHead() {
     if (this.hasEnemy()) {
@@ -147,65 +148,152 @@ class EnemyManager {
   }
 }
 class Player {
-  private point: Point;
-  private room: Room;
-  private ctx: CanvasRenderingContext2D;
+  private _point: Point;
+  get point() {
+    return this._point;
+  }
+  private game: Game;
   private radius = 20;
   private enemyManager!: EnemyManager;
-  private stopAttack!: () => void;
-  constructor(room: Room, ctx: CanvasRenderingContext2D) {
-    this.ctx = ctx;
-    this.room = room;
-    this.point = {
-      x: this.room.width / 2,
-      y: this.room.height - PLAYER_AREA_HEIGHT / 2,
+  private interval: number | null = null;
+  constructor(game: Game) {
+    this.game = game;
+    this._point = {
+      x: this.game.room.width / 2,
+      y: this.game.room.height - PLAYER_AREA_HEIGHT / 2,
     };
     this.init();
+    this.start(this.game.enemyManager);
   }
   init() {
-    this.ctx.beginPath();
-    this.ctx.arc(this.point.x, this.point.y, this.radius, 0, 2 * Math.PI);
-    this.ctx.fillStyle = createRandomColor();
-    this.ctx.fill();
+    const ctx = this.game.ctx;
+    ctx.beginPath();
+    ctx.arc(this._point.x, this._point.y, this.radius, 0, 2 * Math.PI);
+    ctx.fillStyle = createRandomColor();
+    ctx.fill();
   }
   start(enemyManager: EnemyManager) {
     this.enemyManager = enemyManager;
     this.attack();
   }
   attack() {
-    this.stopAttack = loop(() => {
+    this.interval = setInterval(() => {
       const headEnemy = this.enemyManager.getHead();
       if (!headEnemy) {
         return this.stopAttack();
       }
       // 发射子弹攻击敌人
+      new Bullet(this, headEnemy, this.game);
+    }, 1000);
+  }
+  stopAttack() {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
+  }
+}
+class Bullet {
+  private _point: Point;
+  get point() {
+    return this._point;
+  }
+  private radius = 5;
+  private color = createRandomColor();
+  private speed = 160;
+  private game: Game;
+  private player: Player;
+  private enemy: Enemy;
+  private targetPoint!: Point;
+  private deltaX = 0;
+  private deltaY = 0;
+  private stopShooting!: () => void;
+  constructor(player: Player, enemy: Enemy, game: Game) {
+    this.game = game;
+    this.player = player;
+    this.enemy = enemy;
+    this.targetPoint = {
+      x: enemy.point.x,
+      y: enemy.point.y,
+    };
+    this._point = {
+      x: player.point.x,
+      y: player.point.y,
+    };
+    this.deltaX = (this.targetPoint.x - this._point.x) / this.speed;
+    this.deltaY = (this.targetPoint.y - this._point.y) / this.speed;
+    this.init();
+    this.shooting();
+  }
+  init() {
+    const ctx = this.game.ctx;
+    ctx.beginPath();
+    ctx.arc(this.point.x, this.point.y, this.radius, 0, 2 * Math.PI);
+    ctx.fillStyle = createRandomColor();
+    ctx.fill();
+  }
+  shooting() {
+    this.stopShooting = this.game.registerLoop((deltaTime) => {
+      this.game.ctx.clearRect(
+        Math.floor(this._point.x - this.radius),
+        Math.floor(this._point.y - this.radius),
+        this.radius * 2 + 1,
+        this.radius * 2 + 1
+      );
+      this._point.x += this.deltaX;
+      this._point.y += this.deltaY;
+      this.create(this._point);
     });
+  }
+  create(point: Point) {
+    const ctx = this.game.ctx;
+    // 开始绘制圆
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, this.radius, 0, 2 * Math.PI);
+    // 设置填充颜色并填充
+    ctx.fillStyle = this.color;
+    ctx.fill();
   }
 }
 
 type LoopCallback = (deltaTime: number, timestamp: number) => void;
 export class Game {
-  private canvas!: HTMLCanvasElement;
-  private ctx!: CanvasRenderingContext2D;
+  private _canvas!: HTMLCanvasElement;
+  get canvas() {
+    return this._canvas;
+  }
+  private _ctx!: CanvasRenderingContext2D;
+  get ctx() {
+    return this._ctx;
+  }
   private _room!: Room;
   get room() {
     return this._room;
   }
   private player!: Player;
-  private enemyManager!: EnemyManager;
-  private deps: LoopCallback[] = [];
+  private _enemyManager!: EnemyManager;
+  get enemyManager() {
+    return this._enemyManager;
+  }
+  private deps = new Set<LoopCallback>();
   private lastTime = 0;
   private stopFlag = false;
   constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext("2d")!;
+    this._canvas = canvas;
+    this._ctx = canvas.getContext("2d")!;
     this._room = new Room(this);
+    this._enemyManager = new EnemyManager(this);
     this.player = new Player(this);
-    this.enemyManager = new EnemyManager(this);
     this.start();
   }
   registerLoop(callback: LoopCallback) {
-    this.deps.push(callback);
+    this.deps.add(callback);
+    return () => {
+      this.unRegisterLoop(callback);
+    };
+  }
+  unRegisterLoop(callback: LoopCallback) {
+    this.deps.delete(callback);
   }
   start() {
     const _loop = (timestamp: number) => {
@@ -213,7 +301,9 @@ export class Game {
       if (!this.lastTime) this.lastTime = timestamp;
       const deltaTime = timestamp - this.lastTime;
       this.lastTime = timestamp;
-      this.deps.forEach((callback) => callback(deltaTime, timestamp));
+      this.deps.forEach((callback) => {
+        callback(deltaTime, timestamp);
+      });
       requestAnimationFrame(_loop);
     };
     requestAnimationFrame(_loop);

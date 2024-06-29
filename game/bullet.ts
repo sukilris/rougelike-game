@@ -1,7 +1,7 @@
 import { Enemy } from "./enemy/enemy";
 import { Game } from "./game";
 import { Player } from "./player";
-import { createRandomColor } from "./tools";
+import { createRandomColor, isCollide } from "./tools";
 import { Point } from "./types";
 
 export class Bullet {
@@ -9,7 +9,15 @@ export class Bullet {
   get point() {
     return this._point;
   }
-  private radius = 5;
+  private _radius = 5;
+  get radius() {
+    return this._radius;
+  }
+  // 攻击力
+  private _attack = 5;
+  get attack() {
+    return this._attack;
+  }
   private color = createRandomColor();
   private speed = 160;
   private game: Game;
@@ -41,6 +49,9 @@ export class Bullet {
       this._point.y += this.deltaY;
       if (this._point.y <= 0 || this._point.x <= 0) {
         this.destory();
+      } else if (isCollide(this, this.enemy)) {
+        this.destory();
+        this.enemy.beAttack(this._attack);
       } else {
         this.create(this._point);
       }
@@ -54,7 +65,7 @@ export class Bullet {
     const ctx = this.game.ctx;
     // 开始绘制圆
     ctx.beginPath();
-    ctx.arc(point.x, point.y, this.radius, 0, 2 * Math.PI);
+    ctx.arc(point.x, point.y, this._radius, 0, 2 * Math.PI);
     // 设置填充颜色并填充
     ctx.fillStyle = this.color;
     ctx.fill();

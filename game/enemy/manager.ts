@@ -20,9 +20,11 @@ export class EnemyManager {
   }
   intervalCreateEnemy() {
     this.interval = setInterval(() => {
+      console.log(this.checkCount());
       if (this.checkCount()) {
-        return this.stopCreateEnemy();
+        return;
       }
+      console.log(this.count);
       this.createEnemy();
     }, 1000);
   }
@@ -35,6 +37,11 @@ export class EnemyManager {
   createEnemy() {
     this.count++;
     this._enemyies.push(new Enemy(this.game));
+  }
+  removeEnemy(enemy: Enemy) {
+    this.count--;
+    const index = this._enemyies.findIndex((item) => item === enemy);
+    this._enemyies.splice(index, 1);
   }
   getHead() {
     if (this.hasEnemy()) {

@@ -9,11 +9,17 @@ export class Enemy {
     return this._point;
   }
   private game: Game;
-  private radius = 10;
+  private _radius = 10;
+  get radius() {
+    return this._radius;
+  }
   private color = createRandomColor();
-  private hp = ENEMY_DEFAULT_HP;
+  private _hp = ENEMY_DEFAULT_HP;
+  get hp() {
+    return this._hp;
+  }
   private speed = 20;
-  private stopCharge!: () => void;
+  private stopForward!: () => void;
   private get room() {
     return this.game.room;
   }
@@ -27,10 +33,10 @@ export class Enemy {
   }
   init() {
     this.create(this._point);
-    this.charge();
+    this.forward();
   }
-  charge() {
-    this.stopCharge = this.game.registerLoop((deltaTime) => {
+  forward() {
+    this.stopForward = this.game.registerLoop((deltaTime) => {
       this._point.y += this.speed * (deltaTime / 1000);
       this.create(this._point);
     });
@@ -39,9 +45,20 @@ export class Enemy {
     const ctx = this.game.ctx;
     // 开始绘制圆
     ctx.beginPath();
-    ctx.arc(point.x, point.y, this.radius, 0, 2 * Math.PI);
+    ctx.arc(point.x, point.y, this._radius, 0, 2 * Math.PI);
     // 设置填充颜色并填充
     ctx.fillStyle = this.color;
     ctx.fill();
+  }
+  // 受到攻击扣除生命值
+  beAttack(attack: number) {
+    this._hp -= attack;
+    if (this._hp <= 0) {
+      this.destory();
+    }
+  }
+  destory() {
+    this.stopForward();
+    this.game.enemyManager.removeEnemy(this);
   }
 }

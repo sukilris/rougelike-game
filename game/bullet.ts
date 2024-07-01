@@ -1,4 +1,5 @@
 import { Enemy } from "./enemy/enemy";
+import { EnemyManager } from "./enemy/manager";
 import { Game } from "./game";
 import { Player } from "./player";
 import { createRandomColor, isCollide } from "./tools";
@@ -49,17 +50,24 @@ export class Bullet {
       this._point.y += this.deltaY;
       if (this._point.y <= 0 || this._point.x <= 0) {
         this.destory();
-      } else if (isCollide(this, this.enemy)) {
-        this.destory();
-        this.enemy.beAttack(this._attack);
       } else {
-        this.create(this._point);
+        const enemy = this.game.enemyManager.enemyies.find((enemy) =>
+          isCollide(this, enemy)
+        );
+        if (enemy) {
+          this.destory();
+          enemy.beAttack(this._attack);
+        } else {
+          this.create(this._point);
+        }
       }
     });
   }
   destory() {
-    console.log("destory");
     this.stopShooting();
+    this.player = null as any;
+    this.enemy = null as any;
+    this.game = null as any;
   }
   create(point: Point) {
     const ctx = this.game.ctx;

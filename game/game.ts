@@ -1,6 +1,7 @@
 import { EnemyManager } from "./enemy/manager";
 import { Player } from "./player";
 import { Room } from "./room";
+import { setInterval, clearInterval } from "@/game/tools/browser";
 
 type LoopCallback = (deltaTime: number, timestamp: number) => void;
 
@@ -23,6 +24,7 @@ export class Game {
     return this._enemyManager;
   }
   private deps = new Set<LoopCallback>();
+  private duration = 0;
   private lastTime = 0;
   private stopFlag = false;
   constructor(canvas: HTMLCanvasElement) {
@@ -31,6 +33,7 @@ export class Game {
     this._room = new Room(this);
     this._enemyManager = new EnemyManager(this);
     this.player = new Player(this);
+    this.init();
     this.start();
   }
   registerLoop(callback: LoopCallback) {
@@ -42,6 +45,16 @@ export class Game {
   unRegisterLoop(callback: LoopCallback) {
     this.deps.delete(callback);
   }
+  init() {
+    // 监听页面可见性
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        this.stop();
+      } else {
+        this.restart();
+      }
+    });
+  }
   play() {
     this._room.init();
     this.player.start();
@@ -52,6 +65,8 @@ export class Game {
       if (this.stopFlag) return;
       if (!this.lastTime) this.lastTime = timestamp;
       const deltaTime = timestamp - this.lastTime;
+      // 累加时间
+      this.duration += deltaTime;
       this.lastTime = timestamp;
       this.deps.forEach((callback) => {
         callback(deltaTime, timestamp);
@@ -60,7 +75,22 @@ export class Game {
     };
     requestAnimationFrame(_loop);
   }
+  restart() {
+    this.stopFlag = false;
+    this.start();
+  }
   stop() {
     this.stopFlag = true;
+    // 暂停的时候应该重置最新时间
+    this.lastTime = 0;
+  }
+  setInterval(callback: () => void, delay: number) {
+    let count = 1;
+    return this.registerLoop(() => {
+      if (this.duration >= delay * count) {
+        count++;
+        callback();
+      }
+    });
   }
 }

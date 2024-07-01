@@ -1,6 +1,5 @@
 import { Game } from "../game";
 import { MAX_ENEMY_COUNT } from "../tools/constants";
-import { setInterval, clearInterval } from "@/game/tools/browser";
 import { Enemy } from "./enemy";
 
 export class EnemyManager {
@@ -10,7 +9,7 @@ export class EnemyManager {
   get enemyies() {
     return this._enemyies;
   }
-  private interval: number | null = null;
+  private clearInterval!: () => void;
   private game: Game;
   constructor(game: Game) {
     this.game = game;
@@ -19,12 +18,10 @@ export class EnemyManager {
     this.intervalCreateEnemy();
   }
   intervalCreateEnemy() {
-    this.interval = setInterval(() => {
-      console.log(this.checkCount());
+    this.clearInterval = this.game.setInterval(() => {
       if (this.checkCount()) {
         return;
       }
-      console.log(this.count);
       this.createEnemy();
     }, 1000);
   }
@@ -55,9 +52,6 @@ export class EnemyManager {
     }
   }
   stopCreateEnemy() {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
-    }
+    this.clearInterval();
   }
 }

@@ -20,6 +20,14 @@ export class Enemy {
   }
   private speed = 20;
   private stopForward!: () => void;
+  // 是否活着
+  get isAlive() {
+    return this._hp > 0;
+  }
+  // 是否死亡
+  get isDead() {
+    return this._hp <= 0;
+  }
   private get room() {
     return this.game.room;
   }
@@ -60,5 +68,6 @@ export class Enemy {
   destory() {
     this.stopForward();
     this.game.enemyManager.removeEnemy(this);
+    this.game = null as any;
   }
 }

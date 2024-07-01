@@ -3,7 +3,6 @@ import { EnemyManager } from "./enemy/manager";
 import { Game } from "./game";
 import { createRandomColor } from "./tools";
 import { PLAYER_AREA_HEIGHT } from "./tools/constants";
-import { setInterval, clearInterval } from "@/game/tools/browser";
 import { Point } from "./types";
 
 export class Player {
@@ -14,7 +13,7 @@ export class Player {
   private game: Game;
   private radius = 20;
   private enemyManager!: EnemyManager;
-  private interval: number | null = null;
+  private clearInterval!: () => void;
   private color = createRandomColor();
   constructor(game: Game) {
     this.game = game;
@@ -41,7 +40,7 @@ export class Player {
     this.attack();
   }
   attack() {
-    this.interval = setInterval(() => {
+    this.clearInterval = this.game.setInterval(() => {
       const headEnemy = this.enemyManager.getHead();
       if (headEnemy) {
         // 发射子弹攻击敌人
@@ -50,9 +49,6 @@ export class Player {
     }, 1000);
   }
   stopAttack() {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
-    }
+    this.clearInterval();
   }
 }
